@@ -9,7 +9,7 @@ plt.ion()
 
 class ValueIteration:
     def __init__(self, env: GridWorldEnv, gamma=0.95, theta=1e-5):
-        self.max_iter = 1e3
+        self.max_iter = 1e4
         self.env = env
         self.gamma = gamma
         self.theta = theta
@@ -20,7 +20,7 @@ class ValueIteration:
         for a in self.env.actions:
             value = 0
             next_states, probs = self.env.get_next_states(state, a)
-            # if next_states is empty it means state is a terminal state)
+            # if next_states is empty it means state is a terminal state
             if not next_states:
                 value = self.env.get_reward(state)
             else:
@@ -53,8 +53,6 @@ class ValueIteration:
         return string_policy
 
 
-
-
 def run_episode(env, policy):
     done = False
     positions = []
@@ -73,9 +71,17 @@ def run_episode(env, policy):
 
 def main():
     seed_everything()
-    vi = ValueIteration(GridWorldEnv('gridworld3.png'))
+    env_path = 'gridworld4.png'
+    if env_path == 'gridworld3.png':
+        goal_pos = (1, 15)
+        start_pos = (12, 15)
+    else:
+        goal_pos = (1, 59)
+        start_pos = (49, 59)
+
+    vi = ValueIteration(GridWorldEnv(env_path, goal_pos=goal_pos, start_pos=start_pos))
     vi.value_iteration()
-    env = GridWorldEnv('gridworld3.png')
+    env = GridWorldEnv(env_path, goal_pos=goal_pos, start_pos=start_pos)
     plt.figure(figsize=(12, 10))
     positions = run_episode(env, vi.policy())
     plot_trajectory(positions, env, values=vi.V)

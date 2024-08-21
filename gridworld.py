@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple, List
 
+from utils import rgb2gray
+
 
 class GridWorldEnv:
     """
@@ -18,56 +20,40 @@ class GridWorldEnv:
         width (int): The width of the grid.
         height (int): The height of the grid.
         delta (float): The probability of a random action being taken instead of the chosen action.
-        num_obstacles (int): The number of obstacles in the grid.
-        grid (numpy.ndarray): The 2D array representing the grid world.
-        start_pos (Tuple[int, int]): The starting position of the agent (width, height).
-        goal_pos (Tuple[int, int]): The goal position (width, height).
-        current_pos (Tuple[int, int]): The current position of the agent (width, height).
-        actions (List[str]): The list of possible actions.
+        grid (np.ndarray): A 2D numpy array representing the grid world.
+        start_pos (Tuple[int, int]): The starting position of the agent (height, width).
+        goal_pos (Tuple[int, int]): The goal position (height, width).
+        current_pos (Tuple[int, int]): The current position of the agent (height, width).
+        actions (List[str]): A list of possible actions the agent can take ("up", "down", "left", "right").
     """
 
-    def __init__(self, width: int = 64, height: int = 53, delta: float = 0.1, num_obstacles: int = 80):
+    def __init__(self, path: str, delta: float = 0.05, goal_pos: Tuple[int, int] = (1, 15),
+                 start_pos: Tuple[int, int] = (12, 15)):
         """
-        Initialize the GridWorldEnv.
+        Initialize the grid world environment.
 
         Args:
-            width (int): The width of the grid. Defaults to 53.
-            height (int): The height of the grid. Defaults to 64.
-            delta (float): The probability of a random action. Defaults to 0.1.
-            num_obstacles (int): The number of obstacles to place. Defaults to 80.
+            path (str): The path to an image file representing the grid world.
+            delta (float): The probability of a random action being taken instead of the chosen action.
+            goal_pos (Tuple[int, int]): The goal position (height, width).
+            start_pos (Tuple[int, int]): The starting position of the agent (height, width).
         """
-        self.seed()
+        im = plt.imread(path)
+        im = rgb2gray(im)
+        height, width = im.shape
+
         self.width = width
         self.height = height
         self.delta = delta
-        self.num_obstacles = num_obstacles
 
-        self.grid = np.zeros((width, height))
-        self.start_pos = (60, 50)  # (width, height)
-        self.goal_pos = (60, 2)  # (width, height)
+        self.grid = np.zeros((height, width))
+        self.grid[np.where(im == 0)] = 1  # Mark obstacles
+        self.start_pos = start_pos
+        self.goal_pos = goal_pos
         self.current_pos = self.start_pos
-
-        self._place_obstacles()
-        self.grid[self.goal_pos] = 2  # Mark goal
 
         self.actions = ["up", "down", "left", "right"]
 
-    def seed(self, seed=720):
-        np.random.seed(seed)
-        random.seed(seed)
-
-    def _place_obstacles(self):
-        """
-        Place obstacles randomly in the grid.
-
-        This method ensures that obstacles are not placed at the start or goal positions.
-        """
-        obstacles = 0
-        while obstacles < self.num_obstacles:
-            x, y = np.random.randint(0, self.width), np.random.randint(0, self.height)
-            if (x, y) != self.start_pos and (x, y) != self.goal_pos and self.grid[x, y] == 0:
-                self.grid[x, y] = 1  # Mark obstacle
-                obstacles += 1
 
     def reset(self) -> Tuple[int, int]:
         """
@@ -84,6 +70,7 @@ class GridWorldEnv:
         Take a step in the environment based on the given action.
 
         Args:
+            state (Tuple[int, int]): The current state (width, height).
             action (str): The action to take. Must be one of "up", "down", "left", or "right".
 
         Returns:
@@ -121,14 +108,14 @@ class GridWorldEnv:
         prob_action = 1 - self.delta
         prob_other_actions = self.delta / 3
         prob_index = self.actions.index(action)
-        x, y = state
+        y, x = state
         probabilities = [prob_other_actions] * 4
         probabilities[prob_index] = prob_action
 
-        pos_up = (x, min(self.height - 1, y + 1))
-        pos_down = (x, max(0, y - 1))
-        pos_left = (max(0, x - 1), y)
-        pos_right = (min(self.width - 1, x + 1), y)
+        pos_up = (min(self.height - 1, y + 1), x)
+        pos_down = (max(0, y - 1), x)
+        pos_left = (y, max(0, x - 1))
+        pos_right = (y, min(self.width - 1, x + 1))
         positions = [pos_up, pos_down, pos_left, pos_right]
 
         return positions, probabilities
@@ -142,10 +129,10 @@ class GridWorldEnv:
         position of the agent.
         """
         plt.clf()
-        plt.imshow(self.grid.T, cmap='binary', origin='lower')
-        plt.plot(self.start_pos[0], self.start_pos[1], 'bs', markersize=10, label='Start')
-        plt.plot(self.goal_pos[0], self.goal_pos[1], 'gs', markersize=10, label='Goal')
-        plt.plot(self.current_pos[0], self.current_pos[1], 'rs', markersize=8, label='Agent')
+        plt.imshow(self.grid, cmap='binary', origin='lower')
+        plt.plot(self.start_pos[1], self.start_pos[0], 'bs', markersize=10, label='Start')
+        plt.plot(self.goal_pos[1], self.goal_pos[0], 'gs', markersize=10, label='Goal')
+        plt.plot(self.current_pos[1], self.current_pos[0], 'rs', markersize=8, label='Agent')
         plt.legend()
         if action:
             plt.title(f"Grid World Environment - Action: {action}")
@@ -153,29 +140,15 @@ class GridWorldEnv:
             plt.title("Grid World Environment")
         plt.xlabel("Width")
         plt.ylabel("Height")
-        # invert y axis to match the grid layout
+        # invert y-axis to match the grid layout
         plt.gca().invert_yaxis()
         plt.pause(0.5)
 
     def get_reward(self, next_state: Tuple[int, int]) -> float:
-        x, y = next_state
-        if self.grid[x, y] == 1:  # Hit an obstacle
+        y, x = next_state
+        if self.grid[y, x] == 1:  # Hit an obstacle
             return -40
 
         done = next_state == self.goal_pos
 
         return 0 if done else -1
-
-# # Example usage:
-# env = GridWorldEnv()
-# env.visualize()
-#
-# # Simulate a few steps
-# for _ in range(5):
-#     action = np.random.choice(env.actions)
-#
-#     if done:
-#         print("Episode ended.")
-#         break
-#
-# env.visualize()

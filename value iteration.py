@@ -2,6 +2,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from gridworld import GridWorldEnv
+from utils import seed_everything, plot_trajectory
+
 plt.ion()
 
 
@@ -11,7 +13,7 @@ class ValueIteration:
         self.env = env
         self.gamma = gamma
         self.theta = theta
-        self.V = np.zeros((env.width, env.height))
+        self.V = np.zeros((env.height, env.width))
 
     def get_action_values(self, state):
         action_values = {}
@@ -34,63 +36,48 @@ class ValueIteration:
             delta = 0
             for width in range(self.env.width):
                 for height in range(self.env.height):
-                    current_v = self.V[width, height]
-                    action_values = self.get_action_values((width, height))
-                    self.V[width, height] = max(action_values)
-                    delta = max(delta, abs(current_v - self.V[width, height]))
+                    current_v = self.V[height, width]
+                    action_values = self.get_action_values((height, width))
+                    self.V[height, width] = max(action_values)
+                    delta = max(delta, abs(current_v - self.V[height, width]))
             self.max_iter -= 1
 
     def policy(self):
-        policy = np.zeros((self.env.width, self.env.height), dtype=int)
+        policy = np.zeros((self.env.height, self.env.width), dtype=int)
         for width in range(self.env.width):
             for height in range(self.env.height):
-                action_values = self.get_action_values((width, height))
-                policy[width, height] = np.argmax(action_values)
+                action_values = self.get_action_values((height, width))
+                policy[height, width] = np.argmax(action_values)
 
         string_policy = np.vectorize(lambda x: self.env.actions[x])(policy)
         return string_policy
 
 
-def plot_trajectory(positions, env, values):
-    plt.figure(figsize=(12, 10))
-    plt.imshow(env.grid.T, cmap='binary', origin='lower')
-    plt.imshow(values.T, cmap='jet', alpha=0.5, origin='lower')
-    plt.plot(env.start_pos[0], env.start_pos[1], 'bs', markersize=10, label='Start')
-    plt.plot(env.goal_pos[0], env.goal_pos[1], 'gs', markersize=10, label='Goal')
-    x, y = zip(*positions)
-    plt.plot(x, y, "o-", color="k", label="Trajectory")
-    plt.legend()
-    plt.colorbar()
-    plt.title("Grid World Environment")
-    plt.xlabel("Width")
-    plt.ylabel("Height")
-
-    # invert y axis to match the grid layout
-    plt.gca().invert_yaxis()
-    plt.savefig("trajectory.png", dpi=500, facecolor='white', edgecolor='none')
 
 
-def main():
-    vi = ValueIteration(GridWorldEnv())
-    vi.value_iteration()
-    env = GridWorldEnv()
+def run_episode(env, policy):
     done = False
     positions = []
     start_pos = env.reset()
-    policy = vi.policy()
-    print(vi.V[1, 5])
-    print(vi.V[env.goal_pos])
     current_pos = start_pos
-    plt.figure(figsize=(12, 10))
+    positions.append(current_pos)
     env.render()
     while not done:
-        positions.append(current_pos)
         action = policy[current_pos]
-        new_pos, reward, done = env.step(current_pos, action)
-        env.render(action=action)
-        print(f"Action: {action}, New position: {new_pos}, Reward: {reward}, Done: {done}")
-        current_pos = new_pos
-    positions.append(current_pos)
+        next_state, reward, done = env.step(current_pos, action)
+        env.render()
+        positions.append(next_state)
+        current_pos = next_state
+    return positions
+
+
+def main():
+    seed_everything()
+    vi = ValueIteration(GridWorldEnv('gridworld3.png'))
+    vi.value_iteration()
+    env = GridWorldEnv('gridworld3.png')
+    plt.figure(figsize=(12, 10))
+    positions = run_episode(env, vi.policy())
     plot_trajectory(positions, env, values=vi.V)
 
 

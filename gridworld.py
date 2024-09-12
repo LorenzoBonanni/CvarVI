@@ -65,6 +65,9 @@ class GridWorldEnv:
         self.current_pos = self.start_pos
         return self.current_pos
 
+    def is_terminal(self, state):
+        return state == self.goal_pos or self.grid[state[0], state[1]] == 1
+
     def step(self, state, action: str) -> Tuple[Tuple[int, int], float, bool]:
         """
         Take a step in the environment based on the given action.
@@ -86,7 +89,7 @@ class GridWorldEnv:
         reward = self.get_reward(next_state)
         self.current_pos = next_state
 
-        done = next_state == self.goal_pos or self.grid[next_state[0], next_state[1]] == 1
+        done = self.is_terminal(next_state)
 
         return self.current_pos, reward, done
 
@@ -107,16 +110,23 @@ class GridWorldEnv:
             return [], None
         prob_action = 1 - self.delta
         prob_other_actions = self.delta / 3
-        prob_index = self.actions.index(action)
         y, x = state
-        probabilities = [prob_other_actions] * 4
-        probabilities[prob_index] = prob_action
 
         pos_up = (min(self.height - 1, y + 1), x)
         pos_down = (max(0, y - 1), x)
         pos_left = (y, max(0, x - 1))
         pos_right = (y, min(self.width - 1, x + 1))
-        positions = [pos_up, pos_down, pos_left, pos_right]
+
+        if action == "up":
+            positions = [pos_up, pos_left, pos_right]
+        elif action == "down":
+            positions = [pos_down, pos_left, pos_right]
+        elif action == "left":
+            positions = [pos_left, pos_up, pos_down]
+        else:
+            positions = [pos_right, pos_up, pos_down]
+
+        probabilities = [prob_action, prob_other_actions, prob_other_actions]
 
         return positions, probabilities
 
